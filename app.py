@@ -6,7 +6,7 @@ import ssl
 import urllib.request
 
 ssl._create_default_https_context = ssl._create_unverified_context
-
+from langchain.prompts import PromptTemplate
 from groq import Groq
 import time
 from langchain_groq import ChatGroq
@@ -81,7 +81,7 @@ def batch_fetch_details(id_list, batch_size=10):
     return all_records
 
 
-from langchain.prompts import PromptTemplate
+
 
 question_summary_prompt = PromptTemplate(
     input_variables=["question", "text"],
@@ -96,8 +96,7 @@ TEXT:
 
 ANSWER-BASED SUMMARY:"""
 )
-from langchain.chat_models import ChatOpenAI
-from langchain.chains import LLMChain
+
 
 
 
