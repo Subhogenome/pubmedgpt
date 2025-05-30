@@ -12,7 +12,7 @@ import time
 from langchain_groq import ChatGroq
 from langchain.chains import LLMChain
 from langchain.prompts import FewShotPromptTemplate, PromptTemplate
-api ="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"
+api = st.secrets["api"]
 model =ChatGroq(model="meta-llama/llama-4-scout-17b-16e-instruct",api_key=api)
 
 examples = [
