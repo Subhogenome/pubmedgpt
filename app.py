@@ -91,12 +91,32 @@ def batch_fetch_details(id_list, batch_size=10):
 
 
 
-messages = st.container(height=300)
+
+import streamlit as st
+
+# Initialize session state for messages
+if "messages" not in st.session_state:
+    st.session_state.messages = []
+
+# Input from the user
 if ques := st.chat_input("Say something"):
-        formatted_prompt = few_shot_prompt.format(input=ques)
-        response = model.invoke(formatted_prompt)
-        output_text = response.content.strip()
-        id_list = search_pubmed(output_text, retmax=10)
-        all_articles = batch_fetch_details(id_list)
-        messages.chat_message("user").write(ques)
-        messages.chat_message("assistant").write(str(all_articles))
+    # Format the prompt
+    formatted_prompt = few_shot_prompt.format(input=ques)
+    
+    # Get model response
+    response = model.invoke(formatted_prompt)
+    output_text = response.content.strip()
+    
+    # Fetch PubMed results
+    id_list = search_pubmed(output_text, retmax=10)
+    all_articles = batch_fetch_details(id_list)
+
+    # Save user and assistant messages to session state
+    st.session_state.messages.append(("user", ques))
+    st.session_state.messages.append(("assistant", str(all_articles)))
+
+# Display chat history
+for role, message in st.session_state.messages:
+    with st.chat_message(role):
+        st.write(message)
+
