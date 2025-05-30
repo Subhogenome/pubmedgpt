@@ -81,13 +81,31 @@ def batch_fetch_details(id_list, batch_size=10):
     return all_records
 
 
-#f
- #  response = model.invoke(formatted_prompt)
- #  output_text = response.content.strip() 
-    # Format the string with response.text
-   
-  # id_list = search_pubmed(output_text, retmax=10)
-  # all_articles = batch_fetch_details(id_list)
+from langchain.prompts import PromptTemplate
+
+question_summary_prompt = PromptTemplate(
+    input_variables=["question", "text"],
+    template="""
+You are a helpful assistant. Based on the question provided, read the following text and generate a concise, relevant summary that directly answers or relates to the question.
+
+QUESTION:
+{question}
+
+TEXT:
+{text}
+
+ANSWER-BASED SUMMARY:"""
+)
+from langchain.chat_models import ChatOpenAI
+from langchain.chains import LLMChain
+
+
+
+question_summary_chain = LLMChain(
+    llm=model,
+    prompt=question_summary_prompt
+)
+
 
 
 
@@ -99,9 +117,9 @@ if "messages" not in st.session_state:
     st.session_state.messages = []
 
 # Input from the user
-if ques := st.chat_input("Say something"):
+if question := st.chat_input("Say something"):
     # Format the prompt
-    formatted_prompt = few_shot_prompt.format(input=ques)
+    formatted_prompt = few_shot_prompt.format(input=question)
     
     # Get model response
     response = model.invoke(formatted_prompt)
@@ -111,9 +129,12 @@ if ques := st.chat_input("Say something"):
     id_list = search_pubmed(output_text, retmax=10)
     all_articles = batch_fetch_details(id_list)
 
+
+
+    summary = question_summary_chain.run(question=question, text=str(all_articles))
     # Save user and assistant messages to session state
-    st.session_state.messages.append(("user", ques))
-    st.session_state.messages.append(("assistant", str(all_articles)))
+    st.session_state.messages.append(("user", question))
+    st.session_state.messages.append(("assistant", str(summary)))
 
 # Display chat history
 for role, message in st.session_state.messages:
