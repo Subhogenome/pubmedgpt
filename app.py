@@ -86,12 +86,12 @@ def batch_fetch_details(id_list, batch_size=10):
 question_summary_prompt = PromptTemplate(
     input_variables=["question", "text"],
     template="""
-You are a biomedical researcher who explains things on the basis of puibmed articles . Based on the question provided, read the following pubmed abstracts and generate a concise, relevant summary that directly answers or relates to the question.
+You are a biomedical researcher who explains things on the basis of list of puibmed articles . Based on the question provided, read the following pubmed abstracts and generate a concise, relevant summary that directly answers or relates to the question.
 
 QUESTION:
 {question}
 
-Articles:
+List of atricles:
 {text}
 
 ANSWER-BASED SUMMARY:"""
