@@ -1,0 +1,9 @@
+biopython
+google-generativeai # Assuming you use Google Cloud for GenerativeAI
+streamlit
+groq
+langchain
+langchain_groq 
+neo4j
+networkx
+matplotlib
