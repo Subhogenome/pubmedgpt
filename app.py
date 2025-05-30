@@ -91,7 +91,7 @@ You are a biomedical researcher who explains things on the basis of puibmed arti
 QUESTION:
 {question}
 
-TEXT:
+Articles:
 {text}
 
 ANSWER-BASED SUMMARY:"""
