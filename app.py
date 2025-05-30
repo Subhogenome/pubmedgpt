@@ -109,34 +109,34 @@ question_summary_chain = LLMChain(
 
 
 
-import streamlit as st
-
-# Initialize session state for messages
+# Initialize chat history
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
 # Input from the user
-if question := st.chat_input("Say something"):
-    # Format the prompt
-    formatted_prompt = few_shot_prompt.format(input=question)
+if question := st.chat_input("Ask your biomedical question..."):
     
-    # Get model response
+    # Display user message
+    st.chat_message("user").write(question)
+    st.session_state.messages.append(("user", question))
+
+    # Get model's intermediate understanding (optional few-shot)
+    formatted_prompt = few_shot_prompt.format(input=question)
     response = model.invoke(formatted_prompt)
     output_text = response.content.strip()
-    
-    # Fetch PubMed results
+
+    # Fetch PubMed abstracts
     id_list = search_pubmed(output_text, retmax=10)
     all_articles = batch_fetch_details(id_list)
 
-
-
+    # Generate the answer summary
     summary = question_summary_chain.run(question=question, text=str(all_articles))
-    # Save user and assistant messages to session state
-    st.session_state.messages.append(("user", question))
-    st.session_state.messages.append(("assistant", str(summary)))
 
-# Display chat history
+    # Display assistant response
+    st.chat_message("assistant").write(summary)
+    st.session_state.messages.append(("assistant", summary))
+
+# Show previous conversation history
 for role, message in st.session_state.messages:
     with st.chat_message(role):
         st.write(message)
-
