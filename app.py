@@ -111,6 +111,8 @@ if question := st.chat_input("Ask your biomedical question..."):
  #   st.chat_message("user").write(question)
 #    st.session_state.messages.append(("user", question))
     st.session_state.messages.append(("user", question))
+    with st.chat_message("user"):
+     st.write(question)
 
     # Generate PubMed query from the question
     formatted_prompt = few_shot_prompt.format(input=combined_question)
