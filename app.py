@@ -97,6 +97,12 @@ if "last_question" not in st.session_state:
     st.session_state.last_question = ""
 
 # User input
+# 1️⃣ Show previous chat history BEFORE new input
+for role, message in st.session_state.messages:
+    with st.chat_message(role):
+        st.write(message)
+
+# 2️⃣ Get user input
 if question := st.chat_input("Ask your biomedical question..."):
 
     # Combine with last question if it's a follow-up
@@ -104,37 +110,29 @@ if question := st.chat_input("Ask your biomedical question..."):
         combined_question = f"{st.session_state.last_question} Follow-up: {question}"
     else:
         combined_question = question
-
     st.session_state.last_question = combined_question
 
-    # Display and store user input
- #   st.chat_message("user").write(question)
-#    st.session_state.messages.append(("user", question))
+    # Append and show user message
     st.session_state.messages.append(("user", question))
     with st.chat_message("user"):
-     st.write(question)
+        st.write(question)
 
     # Generate PubMed query from the question
     formatted_prompt = few_shot_prompt.format(input=combined_question)
     query_response = model.invoke(formatted_prompt)
     pubmed_query = query_response.content.strip()
-    
-    # Display and store PubMed query
-    st.chat_message("assistant").write(f"🔍 PubMed Query:\n`{pubmed_query}`")
-    st.session_state.messages.append(("assistant", f"🔍 PubMed Query:\n`{pubmed_query}`"))
 
-    # Fetch article records
+    # Append and show query
+    st.session_state.messages.append(("assistant", f"🔍 PubMed Query:\n`{pubmed_query}`"))
+    with st.chat_message("assistant"):
+        st.write(f"🔍 PubMed Query:\n`{pubmed_query}`")
+
+    # Fetch articles and generate summary
     id_list = search_pubmed(pubmed_query, retmax=10)
     all_articles = batch_fetch_details(id_list)
-
-    # Generate answer summary
     summary = question_summary_chain.run(question=combined_question, text=str(all_articles))
 
-    # Display and store summary
-    st.chat_message("assistant").write(f"🧠 Summary Based on Articles:\n{summary}")
+    # Append and show summary
     st.session_state.messages.append(("assistant", f"🧠 Summary Based on Articles:\n{summary}"))
-
-# Display chat history
-for role, message in st.session_state.messages[:-2]:  # Show all except last 2 (just added above)
-    with st.chat_message(role):
-        st.write(message)
+    with st.chat_message("assistant"):
+        st.write(f"🧠 Summary Based on Articles:\n{summary}")
