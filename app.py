@@ -1,9 +1,9 @@
 import os
-from Bio import Entrez
-import streamlit as st
+import uuid
 import ssl
 import time
-import re
+from Bio import Entrez
+import streamlit as st
 from langchain.prompts import PromptTemplate, FewShotPromptTemplate
 from langchain.chains import LLMChain
 from langchain_groq import ChatGroq
@@ -16,9 +16,9 @@ api = st.secrets["api"]
 model = ChatGroq(model="meta-llama/llama-4-scout-17b-16e-instruct", api_key=api)
 
 # Entrez setup
-Entrez.email = "your_email@example.com"  # Add your email here
+Entrez.email = "your_email@example.com"  # Replace with a valid email
 
-# Examples for PubMed query generation
+# ---------- Prompt Templates ----------
 examples = [
     {"input": "harmful effect of probiotics", "output": '"probiotics"[All Fields] AND "adverse effects"[All Fields] AND (side effect* OR complication*)'},
     {"input": "how is Lactobacillus related to human immunity", "output": '"Lactobacillus"[All Fields] AND ("immunity"[All Fields] OR TLR[All Fields] and IgA[All Fields] OR  cytokine[All Fields]) OR  "humans"[All Fields]'},
@@ -31,10 +31,9 @@ example_prompt = PromptTemplate(
 )
 
 prefix = (
-    "You are an expert in converting English questions to Python PubMed query.\n"
-    "You must create PubMed-compatible queries using MeSH terms, abstract, and title fields.\n"
-    "Only return the query string as the answer, no explanation or extra text.\n"
-    "Here are some examples:"
+    "You are an expert in converting English questions to PubMed queries.\n"
+    "Use MeSH terms, abstract and title fields. Only return the query string, no explanations.\n"
+    "Examples:"
 )
 
 few_shot_prompt = FewShotPromptTemplate(
@@ -45,11 +44,12 @@ few_shot_prompt = FewShotPromptTemplate(
     input_variables=["input"]
 )
 
-# Question summarizer prompt
+# Summary generation prompt
 question_summary_prompt = PromptTemplate(
     input_variables=["question", "text"],
     template="""
-You are a biomedical researcher who explains things on the basis of list of pubmed articles. Based on the question provided, read the following pubmed abstracts and generate a concise, relevant summary that directly answers or relates to the question.
+You are a biomedical researcher who explains things based on PubMed abstracts. 
+Given the question and article list, generate a concise and relevant summary.
 
 QUESTION:
 {question}
@@ -59,13 +59,9 @@ List of articles:
 
 ANSWER-BASED SUMMARY:"""
 )
+question_summary_chain = LLMChain(llm=model, prompt=question_summary_prompt)
 
-question_summary_chain = LLMChain(
-    llm=model,
-    prompt=question_summary_prompt
-)
-
-# PubMed fetch functions
+# ---------- PubMed Functions ----------
 def search_pubmed(term, retmax=10):
     handle = Entrez.esearch(db="pubmed", term=term, retmax=retmax)
     record = Entrez.read(handle)
@@ -89,50 +85,75 @@ def batch_fetch_details(id_list, batch_size=10):
         time.sleep(1)
     return all_records
 
-# Initialize session state
-if "messages" not in st.session_state:
-    st.session_state.messages = []
+# ---------- Multi-Chat Session Management ----------
+if "all_chats" not in st.session_state:
+    st.session_state.all_chats = {}  # {chat_id: [(role, message)]}
+if "chat_ids" not in st.session_state:
+    st.session_state.chat_ids = []
+if "current_chat_id" not in st.session_state:
+    new_id = str(uuid.uuid4())
+    st.session_state.chat_ids.append(new_id)
+    st.session_state.current_chat_id = new_id
+    st.session_state.all_chats[new_id] = []
 
-if "last_question" not in st.session_state:
-    st.session_state.last_question = ""
+if "last_question_tracker" not in st.session_state:
+    st.session_state.last_question_tracker = {}  # Per chat
 
-# User input
-# 1️⃣ Show previous chat history BEFORE new input
-for role, message in st.session_state.messages:
+# Sidebar UI
+with st.sidebar:
+    st.title("🗂️ Chat Sessions")
+    if st.button("➕ New Chat"):
+        new_id = str(uuid.uuid4())
+        st.session_state.chat_ids.append(new_id)
+        st.session_state.current_chat_id = new_id
+        st.session_state.all_chats[new_id] = []
+        st.session_state.last_question_tracker[new_id] = ""
+
+    for cid in st.session_state.chat_ids:
+        label = f"Chat {cid[:6]}"
+        if st.button(label):
+            st.session_state.current_chat_id = cid
+
+# Get current chat and its state
+chat_id = st.session_state.current_chat_id
+messages = st.session_state.all_chats[chat_id]
+last_question = st.session_state.last_question_tracker.get(chat_id, "")
+
+# Display previous messages
+for role, message in messages:
     with st.chat_message(role):
         st.write(message)
 
-# 2️⃣ Get user input
+# Chat input
 if question := st.chat_input("Ask your biomedical question..."):
-
-    # Combine with last question if it's a follow-up
-    if st.session_state.last_question:
-        combined_question = f"{st.session_state.last_question} Follow-up: {question}"
+    # Combine follow-up
+    if last_question:
+        combined_question = f"{last_question} Follow-up: {question}"
     else:
         combined_question = question
-    st.session_state.last_question = combined_question
+    st.session_state.last_question_tracker[chat_id] = combined_question
 
-    # Append and show user message
-    st.session_state.messages.append(("user", question))
+    # Show user message
+    messages.append(("user", question))
     with st.chat_message("user"):
         st.write(question)
 
-    # Generate PubMed query from the question
+    # Generate query
     formatted_prompt = few_shot_prompt.format(input=combined_question)
     query_response = model.invoke(formatted_prompt)
     pubmed_query = query_response.content.strip()
 
-    # Append and show query
-    st.session_state.messages.append(("assistant", f"🔍 PubMed Query:\n`{pubmed_query}`"))
+    # Show query
+    messages.append(("assistant", f"🔍 PubMed Query:\n`{pubmed_query}`"))
     with st.chat_message("assistant"):
         st.write(f"🔍 PubMed Query:\n`{pubmed_query}`")
 
-    # Fetch articles and generate summary
+    # Fetch articles
     id_list = search_pubmed(pubmed_query, retmax=10)
     all_articles = batch_fetch_details(id_list)
-    summary = question_summary_chain.run(question=combined_question, text=str(all_articles))
 
-    # Append and show summary
-    st.session_state.messages.append(("assistant", f"🧠 Summary Based on Articles:\n{summary}"))
+    # Generate and show summary
+    summary = question_summary_chain.run(question=combined_question, text=str(all_articles))
+    messages.append(("assistant", f"🧠 Summary Based on Articles:\n{summary}"))
     with st.chat_message("assistant"):
         st.write(f"🧠 Summary Based on Articles:\n{summary}")
