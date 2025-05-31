@@ -135,4 +135,4 @@ if question := st.chat_input("Ask your biomedical question..."):
 # Display chat history
 for role, message in st.session_state.messages[:-2]:  # Show all except last 2 (just added above)
     with st.chat_message(role):
-        st.write(message)h
+        st.write(message)
