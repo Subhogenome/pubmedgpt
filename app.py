@@ -108,14 +108,15 @@ if question := st.chat_input("Ask your biomedical question..."):
     st.session_state.last_question = combined_question
 
     # Display and store user input
-    st.chat_message("user").write(question)
+ #   st.chat_message("user").write(question)
+#    st.session_state.messages.append(("user", question))
     st.session_state.messages.append(("user", question))
 
     # Generate PubMed query from the question
     formatted_prompt = few_shot_prompt.format(input=combined_question)
     query_response = model.invoke(formatted_prompt)
     pubmed_query = query_response.content.strip()
-
+    
     # Display and store PubMed query
     st.chat_message("assistant").write(f"🔍 PubMed Query:\n`{pubmed_query}`")
     st.session_state.messages.append(("assistant", f"🔍 PubMed Query:\n`{pubmed_query}`"))
@@ -132,6 +133,6 @@ if question := st.chat_input("Ask your biomedical question..."):
     st.session_state.messages.append(("assistant", f"🧠 Summary Based on Articles:\n{summary}"))
 
 # Display chat history
-for role, message in st.session_state.messages:
+for role, message in st.session_state.messages[:-2]:  # Show all except last 2 (just added above)
     with st.chat_message(role):
-        st.write(message)
+        st.write(message)h
